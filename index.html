@@ -51,7 +51,7 @@ body {
   right: 0;
   /* text-align: center; */
   margin: auto;
-  fill: rgba(0, 0, 0, 0.55);
+  fill: rgba(0, 0, 0, 1);
   visibility: hidden;
 }
 
@@ -117,6 +117,49 @@ body {
   height: 24px;
   fill: rgba(255, 255, 255, 0.75);
 }
+
+
+.buffering-button {
+  width: 50px;
+  height: 50px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  /* text-align: center; */
+  margin: auto;
+  fill: rgba(0, 0, 0, 0.8);
+}
+
+.buffering-button::before {
+  content: '';
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 100%;
+  position: absolute;
+  background-color: #fff;
+  opacity: .5;
+  /* z-index: 1; */
+}
+
+.buffering {
+  width: 50px;
+  height: 50px;
+  /* fill: rgba(255, 255, 255, 0.75); */
+  animation: rotation 1s infinite linear;;
+  stroke-width: 2rem;
+}
+
+@keyframes rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(359deg);
+  }
+}
   </style>
 </head>
 <body>
@@ -127,14 +170,24 @@ body {
   <script type="text/x-template" id="ultra-template">
     <div class="player">
       <!-- autoplay controls -->
-      <audio ref="audio" src="https://nashe1.hostingradio.ru:80/ultra-192.mp3"></audio>
+      <audio ref="audio" autoplay
+        @loadstart="loadstart"
+        @waiting="loadstart"
+        @loadeddata="loadeddata"
+        @playing="loadeddata"
+        @abort="error"
+        @error="error"
+        src="https://nashe1.hostingradio.ru:80/ultra-192.mp3"></audio>
       <div class="cover">
         <img @click="triggerPlay" :src="cover" :alt="cover">
-        <div v-show="!paused" @click="triggerPlay" class="button play">
+        <div v-show="!loading && paused" @click="triggerPlay" class="button play">
           <svg width="100%" height="100%" viewBox="0 0 34 34" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:1.41421"><path d="M28.228,18.327l-16.023,8.983c-0.99,0.555 -2.205,-0.17 -2.205,-1.318l0,-17.984c0,-1.146 1.215,-1.873 2.205,-1.317l16.023,8.982c1.029,0.577 1.029,2.077 0,2.654Z" style="fill-rule:nonzero"></path></svg>
         </div>
-        <div v-show="paused" @click="triggerPlay" class="button pause">
+        <div v-show="!loading && !paused" @click="triggerPlay" class="button pause">
           <svg width="100%" height="100%" viewBox="0 0 34 34" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve" style="fill-rule:evenodd;clip-rule:evenodd;stroke-linejoin:round;stroke-miterlimit:1.41421"><path d="M20.3,6l2.9,0c0.994,0 1.8,0.806 1.8,1.8l0,18.4c0,0.994 -0.806,1.8 -1.8,1.8l-2.9,0c-0.994,0 -1.8,-0.806 -1.8,-1.8l0,-18.4c0,-0.994 0.806,-1.8 1.8,-1.8Zm-9.5,0l2.9,0c0.994,0 1.8,0.806 1.8,1.8l0,18.4c0,0.994 -0.806,1.8 -1.8,1.8l-2.9,0c-0.994,0 -1.8,-0.806 -1.8,-1.8l0,-18.4c0,-0.994 0.806,-1.8 1.8,-1.8Z" style="fill-rule:nonzero"></path></svg>
+        </div>
+        <div v-show="loading" class="buffering-button">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" class="buffering"><path d="M16.003 24h-.006c-4.389 0-8-3.611-8-8 0-4.389 3.611-8 8-8 1.896 0 3.731.674 5.176 1.9a.692.692 0 01.312.577c0 .378-.312.69-.69.69a.693.693 0 01-.512-.227 6.632 6.632 0 00-4.28-1.567c-3.637 0-6.63 2.993-6.63 6.63 0 3.638 2.993 6.63 6.63 6.63s6.63-2.992 6.63-6.63V16a.693.693 0 01.685-.607c.347 0 .643.262.685.607 0 4.389-3.611 8-8 8"></path></svg>
         </div>
       </div>
       <h1>{{ song.metadata }}</h1>
@@ -164,7 +217,8 @@ body {
       data() {
         return {
           url: 'https://meta.fmgid.com/stations/ultra/current.json',
-          paused: true,
+          paused: null,
+          loading: null,
           song: {},
         }
       },
@@ -177,21 +231,33 @@ body {
         },
       },
       methods: {
+        loadstart() {
+          this.loading = true;
+        },
+        loadeddata() {
+          this.loading = false;
+        },
+        error() {
+          alert('Something goes wrong ¯\_(ツ)_/¯');
+        },
         triggerPlay() {
           const audio = this.$refs.audio;
           if (audio.paused) {
             audio.play().then(_ => { this.paused = audio.paused });
           } else {
             audio.pause();
-            this.paused = audio.paused
+            this.paused = audio.paused;
           }
+        },
+        fetchCurrent() {
+          fetch(this.url, {cache: "no-store"})
+            .then(response => response.json())
+            .then(json => this.song = json);
         },
       },
       created() {
-        fetch(this.url, {cache: "no-store"}).then(r => r.json()).then(j => this.song = j);
-        const interval = setInterval(() => {
-          fetch(this.url, {cache: "no-store"}).then(r => r.json()).then(j => this.song = j);
-        }, 3000);
+        this.fetchCurrent();
+        const interval = setInterval(() => { this.fetchCurrent() }, 3000);
       },
     });
 
