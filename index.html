@@ -63,7 +63,7 @@ body {
 
 .player img {
   max-width: calc(100vw - 2rem);
-  max-height: calc(100vh - 68px - 1.5rem);
+  max-height: calc(100vh - 68px - 1.5rem - 32px);
   border-radius: 5px;
   z-index: -1000;
   /* float: left; */
@@ -207,6 +207,9 @@ body {
           <!-- Youtube -->
         </a></li>
       </ul>
+      <div>
+        <input type="range" min="0" max="1" step="0.01" v-model="volume" />
+      </div>
     </div>
   </script>
   
@@ -220,6 +223,7 @@ body {
           paused: null,
           loading: null,
           song: {},
+          volume: 1,
         }
       },
       computed: {
@@ -228,6 +232,12 @@ body {
             return `https://meta.fmgid.com/stations/ultra/${this.song.cover}`;
           }
           return null;
+        },
+      },
+      watch: {
+        volume(val) {
+          this.$refs.audio.volume = this.volume;
+          localStorage.volume = val;
         },
       },
       methods: {
@@ -258,6 +268,12 @@ body {
       created() {
         this.fetchCurrent();
         const interval = setInterval(() => { this.fetchCurrent() }, 3000);
+        if (localStorage.volume) {
+          this.volume = localStorage.volume;
+        }
+      },
+      mounted() {
+        this.$refs.audio.volume = this.volume;
       },
     });
 
